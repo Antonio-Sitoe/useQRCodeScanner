@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   BrowserMultiFormatReader,
   NotFoundException,
@@ -6,20 +6,26 @@ import {
 } from '@zxing/library'
 
 const useQRCodeScanner = () => {
+  const codeReader = useRef<BrowserMultiFormatReader | null>(null)
+  const video = useRef<HTMLVideoElement>(null)
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null)
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
   const [result, setResult] = useState<string>('')
   const [error, setError] = useState('')
 
   useEffect(() => {
-    const codeReader = new BrowserMultiFormatReader()
-
     const initDevices = async () => {
       try {
-        const videoInputDevices = await codeReader.listVideoInputDevices()
-        setDevices(videoInputDevices)
-        if (videoInputDevices.length > 0) {
-          setSelectedDeviceId(videoInputDevices[0].deviceId)
+        codeReader.current = new BrowserMultiFormatReader()
+
+        const videoInputDevices =
+          await codeReader.current?.listVideoInputDevices()
+
+        if (videoInputDevices) {
+          setDevices(videoInputDevices)
+          if (videoInputDevices.length > 0) {
+            setSelectedDeviceId(videoInputDevices[0].deviceId)
+          }
         }
       } catch (err) {
         console.error(err)
@@ -29,16 +35,15 @@ const useQRCodeScanner = () => {
     initDevices()
 
     return () => {
-      codeReader.reset()
+      codeReader.current?.reset()
     }
   }, [])
 
   const startScanning = () => {
     if (selectedDeviceId) {
-      const codeReader = new BrowserMultiFormatReader()
-      codeReader.decodeFromVideoDevice(
+      codeReader.current?.decodeFromVideoDevice(
         selectedDeviceId,
-        'video',
+        video.current,
         (result: Result, err) => {
           if (result) {
             setResult(result.getText())
@@ -52,6 +57,7 @@ const useQRCodeScanner = () => {
   }
 
   const resetScanner = () => {
+    codeReader.current?.reset()
     setResult('')
     setError('')
   }
@@ -64,6 +70,7 @@ const useQRCodeScanner = () => {
     error,
     startScanning,
     resetScanner,
+    video,
   }
 }
 
